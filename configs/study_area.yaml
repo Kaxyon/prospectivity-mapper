@@ -1,0 +1,92 @@
+# Study-area definition for the prospectivity mapper.
+#
+# The AOI is a 1.5 deg x 1.0 deg window over the Carlin trend / Battle Mountain
+# area of north-central Nevada, one of the most densely mineralised gold belts
+# on Earth.  Everything downstream is expressed on a single UTM grid so that
+# raster layers, vector layers and point samples are pixel-aligned.
+
+project:
+  name: "Carlin Trend Prospectivity Mapper"
+  seed: 42
+
+study_area:
+  name: "Carlin Trend & Battle Mountain, Nevada, USA"
+  # west, south, east, north (EPSG:4326)
+  aoi_wgs84: [-117.00, 40.00, -115.50, 41.00]
+  crs: "EPSG:32611"          # WGS84 / UTM zone 11N
+  resolution_m: 500.0
+
+paths:
+  raw: "data/raw"
+  processed: "data/processed"
+  output: "output"
+
+sources:
+  mrds:
+    url: "https://mrdata.usgs.gov/mrds/mrds-csv.zip"
+    member: "mrds.csv"
+  dem:
+    # Copernicus DEM GLO-30, public S3 bucket, no authentication required.
+    bucket: "https://copernicus-dem-30m.s3.amazonaws.com"
+    tile_template: "Copernicus_DSM_COG_10_{lat}_{lon}_DEM"
+  geology:
+    url: "https://mrdata.usgs.gov/geology/state/shp/NV.zip"
+  magnetic:
+    # USGS residual total-intensity magnetic anomaly, conterminous US, 1 km.
+    url: "https://mrdata.usgs.gov/magnetic/USmag_origmrg.zip"
+  gravity:
+    # USGS complete Bouguer anomaly, conterminous US, 2-arc-minute XYZ grid.
+    url: "https://mrdata.usgs.gov/gravity/bouguer/bouguer.xyz.gz"
+  geochemistry:
+    # USGS National Geochemical Database: stream-sediment samples (NURE).
+    url: "https://mrdata.usgs.gov/ngdb/sediment/ngdbsed-csv.zip"
+
+labels:
+  # A deposit is a positive if it carries one of these commodities ...
+  commodities: ["Au", "Ag"]
+  # ... and its record is at least this good (see labels.CONFIDENCE).
+  min_confidence: 1
+  # Cells within this distance of a known deposit are neither positive nor
+  # negative: they are "known mineralised ground" and would poison the
+  # negative class if sampled.
+  exclusion_buffer_m: 2000.0
+  # Unlabelled (negative) cells drawn per positive cell.
+  negative_ratio: 8
+  max_positives: 1200
+  # Cap on the unlabelled pool used for fitting (cells are spatially
+  # autocorrelated, so a large random subsample is statistically ample).
+  max_unlabelled: 20000
+
+geochemistry:
+  elements: ["As", "Sb", "Cu", "Pb", "Zn", "Ag", "Fe", "Mn"]
+  idw_radius_km: 40.0
+  idw_power: 2.0
+
+targeting:
+  max_targets: 20
+  # Two targets must be at least this far apart (non-maximum suppression).
+  min_separation_km: 3.0
+  # Do not report targets within this distance of an already-known deposit:
+  # that would just re-list existing mines.  Kept above the 2 km labelling
+  # buffer so targets are genuinely undrilled ground.
+  min_distance_km: 5.0
+
+model:
+  algorithm: "random_forest"      # random_forest | gradient_boosting
+  n_estimators: 500
+  max_depth: null
+  # Regularised: small leaves memorised the 216 positive cells and produced
+  # halo artefacts around known deposits; larger leaves and 1/3 of the features
+  # per split generalise better and give a smoother regional surface.
+  min_samples_leaf: 10
+  max_features: 0.33
+  class_weight: "balanced_subsample"
+  pu_learning: true
+  pu_mode: "soft"                # soft | hard (hard = classic Elkan-Noto RN)
+  # Which fitted model produces the map: naive | pu | auto (auto = better AP
+  # on the spatial hold-out).  Both are always trained and reported.
+  selection: "naive"
+  pu_negative_fraction: 0.15      # share of unlabelled cells kept as reliable negatives
+  spatial_block_km: 8.0           # spatial cross-validation block size
+  test_fraction: 0.25
+  random_state: 42

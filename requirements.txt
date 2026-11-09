@@ -1,0 +1,23 @@
+# Core scientific stack (all free / open source)
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+scipy>=1.11
+joblib>=1.3
+
+# Geospatial
+rasterio>=1.3
+geopandas>=0.14
+shapely>=2.0
+pyproj>=3.6
+
+# Explainability + visualisation
+shap>=0.44
+matplotlib>=3.8
+folium>=0.15
+
+# Config / CLI
+PyYAML>=6.0
+
+# Test only
+pytest>=7.4
